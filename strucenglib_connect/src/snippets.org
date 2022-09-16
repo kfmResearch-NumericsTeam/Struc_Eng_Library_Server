@@ -1,0 +1,5 @@
+import sys
+sys.path.append('Y:\projects\code_generator\StrucEng_Library_Server\strucenglib_connect')
+from strucenglib_connect.strucenglib_connect import analyse_and_extract
+mdl = analyse_and_extract(mdl, software='abaqus', fields=['u','sf','sm'])
+

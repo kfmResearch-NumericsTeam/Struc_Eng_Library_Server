@@ -33,11 +33,19 @@ def assign_dict_to_obj(obj, dict):
     return obj
 
 
+def set_whitelist(lx):
+    global CLASS_WHITE_LIST
+    CLASS_WHITE_LIST = lx
+
+
 CLASS_WHITE_LIST = None
 
+
 def locate_class(full_name):
+    print(full_name, full_name not in CLASS_WHITE_LIST)
     if CLASS_WHITE_LIST is not None:
         if full_name not in CLASS_WHITE_LIST:
+            print("Unknown class ignored: " + full_name)
             raise Exception("Class " + full_name + " was not added to whitelist")
     return locate(full_name)
 
@@ -51,7 +59,11 @@ class ExtendedDecoder(json.JSONDecoder):
         try:
             full_name = obj["__json_type_module__"]
             temp = Empty()
-            temp.__class__ = locate_class(full_name)
+            try:
+                temp.__class__ = locate_class(full_name)
+            except:
+                return {}
+                pass
             return assign_dict_to_obj(temp, obj)
 
         except Exception as e:

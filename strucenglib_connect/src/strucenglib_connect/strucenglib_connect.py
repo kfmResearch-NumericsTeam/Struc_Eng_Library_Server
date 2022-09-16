@@ -1,4 +1,7 @@
-from marshall import obj_to_obj
+from marshall import CLASS_WHITE_LIST, obj_to_json, obj_to_obj, set_whitelist
+from whitelist import FEA_WHITE_LIST
+
+set_whitelist(FEA_WHITE_LIST)
 
 
 def analyse_and_extract(structure, software='abaqus', fields=[]):
@@ -8,4 +11,5 @@ def analyse_and_extract(structure, software='abaqus', fields=[]):
 
     print('analyse_and_extract')
     res.analyse_and_extract(software=software, fields=fields)
+    print(obj_to_json(res))
     return res

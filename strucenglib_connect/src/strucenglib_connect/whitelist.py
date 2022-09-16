@@ -101,4 +101,4 @@ WHITE_LIST_CLASS = [
     compas_fea.structure.structure.Structure
 ]
 
-WHITE_LIST = [c.__module__ + "." + c.__name__ for c in WHITE_LIST_CLASS]
+FEA_WHITE_LIST = [c.__module__ + "." + c.__name__ for c in WHITE_LIST_CLASS]

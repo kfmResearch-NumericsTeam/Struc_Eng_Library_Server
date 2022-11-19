@@ -1,25 +1,29 @@
 import asyncio
-import json
+import logging
+import sys
+import traceback
+from contextlib import contextmanager
 
 import websockets
 
+from comm_utils import websocket_receive, websocket_send
 from marshall import json_to_obj, obj_to_json, set_whitelist
-from strucenglib_connect import message_from_string
 from whitelist import FEA_WHITE_LIST
 
-set_whitelist(FEA_WHITE_LIST)
-
-from contextlib import contextmanager
-import sys
+logger = logging.getLogger('strucenglib_server')
 
 
 class WriteProxy(object):
+    """
+    Proxy to delegate stdout to callback
+    """
+
     def __init__(self, orig, callback):
         self.orig = orig
         self.callback = callback
 
     def write(self, text):
-        self.orig.write('>>>> ' + text)
+        self.orig.write(text)
         self.callback(text)
 
     def __getattr__(self, attr):
@@ -36,66 +40,87 @@ def prefix_stdout(callback):
         sys.stdout = current_out
 
 
-async def handle_type(websocket, type, payload):
-    print('handle_type', type, payload)
+def run_server(host, port):
+    set_whitelist(FEA_WHITE_LIST)
 
-    supported_types = ['execute_1_0']
+    start_server = websockets.serve(handle_client, host, port)
+    asyncio.get_event_loop().run_until_complete(start_server)
+    asyncio.get_event_loop().run_forever()
+
+
+async def _send_error(websocket, msg):
+    logger.debug('sending error: %s', msg)
+    await websocket_send(websocket, 'error', msg)
+
+
+async def _send_log_output(websocket, msg):
+    await websocket_send(websocket, 'trace', msg)
+
+
+async def _send_analyse_and_extract_result(websocket, msg):
+    await websocket_send(websocket, 'analyse_and_extract_result', msg)
+
+
+async def handle_client_message(websocket, type, payload):
+    logger.info('handle request type: %s', type)
+
+    supported_types = ['analyse_and_extract']
     if type is None or type not in supported_types:
-        await websocket.send('unsuppoted message_type')
+        await _send_error(websocket, 'unsuppoted message_type, supported: ' + str(supported_types))
         return
 
-
-    if type == 'execute_1_0':
+    if type == 'analyse_and_extract':
         execute_args = payload.get('args')
         structure_json = payload.get('structure')
+        logger.info('handle request type: %s', str(execute_args))
 
-        async def on_message(text):
-            # XXX: Log type prefix
-            await websocket.send(text)
-            pass
+        def on_stdout_message(text):
+            # XXX: This may be very slow
+            asyncio.create_task(_send_log_output(websocket, text))
 
         structure = json_to_obj(structure_json)
-        print('a')
-        print(structure)
         if structure is None:
-            await websocket.send('structure is None')
+            await _send_error(websocket, 'structure is invalid. got None')
             return
 
-        with prefix_stdout(on_message):
-            structure.analyse_and_extract(*execute_args)
+        with prefix_stdout(on_stdout_message):
+            await _execute_analyse_and_extract(structure, **execute_args)
 
-            result = obj_to_json(structure)
-            await websocket.send({
-                'message_type': 'exec',
-                'payload': result
-            })
-
-        # TODO: only send result not entire structure
+        result = obj_to_json(structure)
+        await websocket_send(websocket, 'analyse_and_extract_result', result)
 
 
-        pass
+async def _execute_analyse_and_extract(structure, **execute_args):
+    # TODO: Temp dir validation
+    structure.analyse_and_extract(**execute_args)
+    return structure
 
 
-async def hello(websocket, path):
-    resp = await websocket.recv()
-    print('message from client', resp)
-    payload = None
+async def _do_handle_client(websocket, path):
+    message_type, message = await websocket_receive(websocket)
 
-    type, message = message_from_string(resp)
-
-    if type is None:
+    if message_type is None:
         await websocket.send('no type or message')
         return
 
+    await handle_client_message(websocket, message_type, message)
+
+
+async def handle_client(websocket, path):
     try:
-        await handle_type(websocket, type, message)
+        await _do_handle_client(websocket, path)
     except Exception as e:
-        print(e)
-        await websocket.send('error in request: ' + str(e))
+        logger.error('Error in request', e)
+        msg = traceback.format_exc()
+        try:
+            await _send_error(websocket, msg)
+        except:
+            # if this fails we ignore signaling
+            pass
 
 
 if __name__ == '__main__':
-    print('main')
-    start_server = websockets.serve(hello, 'localhost', 8765)
-    asyncio.get_event_loop().run_until_complete(start_server)
-    asyncio.get_event_loop().run_forever()
+    logging.basicConfig(level=logging.INFO,
+                        format='%(name)s (%(levelname)s): %(message)s')
+    logging.getLogger('strucenglib_server').setLevel(logging.DEBUG)
+    run_server('localhost', 8007)

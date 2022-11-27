@@ -10,11 +10,11 @@ from strucenglib_connect.comm_utils import websocket_receive, websocket_send
 logger = logging.getLogger(__name__)
 
 
-def do_analyse_and_extract(server, exec):
+def do_analyse_and_extract(server, data):
     # global do_print
     # do_print = print_callback
     c = Client(server)
-    return c.execute('analyse_and_extract', exec)
+    return c.execute('analyse_and_extract', data)
 
 
 class Client:
@@ -64,29 +64,33 @@ class Client:
         self.stdout_buffer.write(str(msg))
 
     async def async_processing(self, message_type, payload):
-        async with websockets.connect(self.host) as websocket:
-            await websocket_send(websocket, message_type, payload)
-            while True:
-                try:
-                    type, payload = await websocket_receive(websocket)
+        self._do_print('error')
+        return
+        try:
+            async with websockets.connect(self.host) as websocket:
+                await websocket_send(websocket, message_type, payload)
+                while True:
+                    try:
+                        type, payload = await websocket_receive(websocket)
 
-                    if type == 'trace':
-                        self._do_print(payload)
+                        if type == 'trace':
+                            self._do_print(payload)
 
+                        elif type == 'analyse_and_extract_result':
+                            self.result = {
+                                'success': True,
+                                'payload': payload
+                            }
+                        elif type == 'error':
+                            self._do_print('Error from server: ' + payload)
+                            self.is_alive = False
+                            break
+                        else:
+                            self._do_print('unknown type:' + type + ', payload: ' + payload)
 
-                    elif type == 'analyse_and_extract_result':
-                        self.result = {
-                            'success': True,
-                            'payload': payload
-                        }
-                    elif type == 'error':
-                        self._do_print('Error from server: ' + payload)
+                    except Exception as e:
+                        self._do_print(e)
                         self.is_alive = False
                         break
-                    else:
-                        self._do_print('unknown type:' + type + ', payload: ' + payload)
-
-                except Exception as e:
-                    self._do_print(e)
-                    self.is_alive = False
-                    break
+        except Exception as e:
+            self._do_print(e)

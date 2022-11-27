@@ -1,18 +1,21 @@
 from compas_fea.structure import Structure
 
-# from marshall import json_to_obj, obj_to_json
+from marshall import json_to_obj, obj_to_json
 
 from compas.rpc import Proxy
 
 def analyse_and_extract(server, structure, **kwargs):
+    print(server, structure, *kwargs)
+
     # exec = {
     #     'args': kwargs,
     #     'structure': obj_to_json(structure)
     # }
-    # try:
-    #     client = Proxy('client')
-    # except:
-    #     client = Proxy('strucenglib_connect.client')
+    try:
+        client = Proxy('client')
+    except:
+        client = Proxy('strucenglib_connect.client')
+    print(client)
     #
     # response = client.do_analyse_and_extract(server, exec)
     # if not response:

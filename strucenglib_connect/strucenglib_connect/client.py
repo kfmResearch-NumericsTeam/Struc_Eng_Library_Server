@@ -5,7 +5,7 @@ import logging
 
 import websockets
 
-from comm_utils import websocket_receive, websocket_send
+from strucenglib_connect.comm_utils import websocket_receive, websocket_send
 
 logger = logging.getLogger(__name__)
 

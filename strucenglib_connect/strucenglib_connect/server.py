@@ -7,9 +7,9 @@ from contextlib import contextmanager
 
 import websockets
 
-from comm_utils import websocket_receive, websocket_send
-from marshall import json_to_obj, obj_to_json, set_whitelist
-from whitelist import FEA_WHITE_LIST
+from strucenglib_connect.comm_utils import websocket_receive, websocket_send
+from strucenglib_connect.marshall import json_to_obj, obj_to_json, set_whitelist
+from strucenglib_connect.whitelist import FEA_WHITE_LIST
 
 logger = logging.getLogger('strucenglib_server')
 

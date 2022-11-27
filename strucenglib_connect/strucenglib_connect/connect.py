@@ -14,6 +14,8 @@ def analyse_and_extract(server, structure, **kwargs):
         print(e)
         raise (e)
     response = client.do_analyse_and_extract(server, data)
+    print('response from server:')
+    print(response)
     if not response:
         print('response is null, error')
         return None
@@ -23,5 +25,5 @@ def analyse_and_extract(server, structure, **kwargs):
     payload = response.get('payload')
     if success and payload is not None:
         return json_to_obj(response['payload'])
-
-    return None
+    else:
+        return structure

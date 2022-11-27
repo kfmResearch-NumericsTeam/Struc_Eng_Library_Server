@@ -63,7 +63,7 @@ class Client:
 
     async def async_processing(self, message_type, payload):
         try:
-            async with websockets.connect(self.host) as websocket:
+            async with websockets.connect(self.host, ping_interval=None) as websocket:
                 await websocket_send(websocket, message_type, payload)
                 while True:
                     try:

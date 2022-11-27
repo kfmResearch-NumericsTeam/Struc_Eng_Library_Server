@@ -43,7 +43,7 @@ def prefix_stdout(callback):
 def run_server(host, port):
     set_whitelist(FEA_WHITE_LIST)
 
-    start_server = websockets.serve(handle_client, host, port)
+    start_server = websockets.serve(handle_client, host, port, ping_interval=None)
     asyncio.get_event_loop().run_until_complete(start_server)
     asyncio.get_event_loop().run_forever()
 

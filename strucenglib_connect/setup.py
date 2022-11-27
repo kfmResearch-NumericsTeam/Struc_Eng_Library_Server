@@ -13,4 +13,8 @@ setuptools.setup(
     install_requires=dependencies,
     url="https://github.com/kfmResearch-NumericsTeam/Struc_Eng_Library_Server",
     packages=['strucenglib_connect'],
+
+    entry_points={
+        'console_scripts': ['strucenglib_server=strucenglib_connect.server:main'],
+    }
 )

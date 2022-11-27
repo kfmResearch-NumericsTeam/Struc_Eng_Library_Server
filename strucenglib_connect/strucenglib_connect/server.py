@@ -121,8 +121,12 @@ async def handle_client(websocket, path):
             pass
 
 
-if __name__ == '__main__':
+def main():
     logging.basicConfig(level=logging.INFO,
                         format='%(name)s (%(levelname)s): %(message)s')
     logging.getLogger('strucenglib_server').setLevel(logging.DEBUG)
-    run_server('localhost', 8007)
+    run_server('localhost', 8080)
+
+
+if __name__ == '__main__':
+    main()

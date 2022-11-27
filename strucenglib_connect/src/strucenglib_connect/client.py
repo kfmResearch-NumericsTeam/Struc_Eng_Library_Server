@@ -1,4 +1,5 @@
 import asyncio
+import io
 import json
 import logging
 
@@ -6,16 +7,14 @@ import websockets
 
 from comm_utils import websocket_receive, websocket_send
 
-do_print = print
+logger = logging.getLogger(__name__)
 
-def do_analyse_and_extract(server, exec, print_callback):
+
+def do_analyse_and_extract(server, exec):
     # global do_print
     # do_print = print_callback
     c = Client(server)
     return c.execute('analyse_and_extract', exec)
-
-
-logger = logging.getLogger(__name__)
 
 
 class Client:
@@ -23,6 +22,7 @@ class Client:
         self.host = host
         self.is_alive = False
         self.result = None
+        self.stdout_buffer = io.StringIO()
         pass
 
     async def check_alive(self):
@@ -33,13 +33,15 @@ class Client:
     def execute(self, message_type, payload):
         self.result = {
             'success': False,
-            'payload': None
+            'payload': None,
+            'stdout': None,
         }
         asyncio.get_event_loop().run_until_complete(asyncio.wait([
             self.check_alive(),
             self.async_processing(message_type, payload)
         ]))
 
+        self.result['stdout'] = self.stdout_buffer.getvalue()
         return self.result
 
     def _handle_response(self, response):
@@ -57,6 +59,10 @@ class Client:
 
         return True, None
 
+    def _do_print(self, msg):
+        print(msg)
+        self.stdout_buffer.write(str(msg))
+
     async def async_processing(self, message_type, payload):
         async with websockets.connect(self.host) as websocket:
             await websocket_send(websocket, message_type, payload)
@@ -65,7 +71,8 @@ class Client:
                     type, payload = await websocket_receive(websocket)
 
                     if type == 'trace':
-                        print(payload)
+                        self._do_print(payload)
+
 
                     elif type == 'analyse_and_extract_result':
                         self.result = {
@@ -73,13 +80,13 @@ class Client:
                             'payload': payload
                         }
                     elif type == 'error':
-                        print('Error from server: ' + payload)
+                        self._do_print('Error from server: ' + payload)
                         self.is_alive = False
                         break
                     else:
-                        print('unknown type:', type, 'payload: ', payload)
+                        self._do_print('unknown type:' + type + ', payload: ' + payload)
 
                 except Exception as e:
-                    print(e)
+                    self._do_print(e)
                     self.is_alive = False
                     break

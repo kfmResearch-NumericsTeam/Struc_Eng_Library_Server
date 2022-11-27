@@ -1,4 +1,5 @@
 import asyncio
+import io
 import logging
 import sys
 import traceback
@@ -17,7 +18,6 @@ class WriteProxy(object):
     """
     Proxy to delegate stdout to callback
     """
-
     def __init__(self, orig, callback):
         self.orig = orig
         self.callback = callback
@@ -74,6 +74,7 @@ async def handle_client_message(websocket, type, payload):
         structure_json = payload.get('structure')
         logger.info('handle request type: %s', str(execute_args))
 
+
         def on_stdout_message(text):
             # XXX: This may be very slow
             asyncio.create_task(_send_log_output(websocket, text))
@@ -85,6 +86,7 @@ async def handle_client_message(websocket, type, payload):
 
         with prefix_stdout(on_stdout_message):
             await _execute_analyse_and_extract(structure, **execute_args)
+
 
         result = obj_to_json(structure)
         await websocket_send(websocket, 'analyse_and_extract_result', result)

@@ -64,8 +64,6 @@ class Client:
         self.stdout_buffer.write(str(msg))
 
     async def async_processing(self, message_type, payload):
-        self._do_print('error')
-        return
         try:
             async with websockets.connect(self.host) as websocket:
                 await websocket_send(websocket, message_type, payload)

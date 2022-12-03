@@ -2,6 +2,26 @@ import base64
 import pickle
 from io import BytesIO, StringIO
 
+from marshall_json import json_to_obj, obj_to_json
+
+
+def serialize(obj, method='pickle'):
+    if method == 'pickle':
+        return obj_to_bin(obj)
+    elif method == 'json':
+        return obj_to_json(obj)
+    else:
+        raise Exception('unknown')
+
+
+def unserialize(obj, method='pickle'):
+    if method == 'pickle':
+        return bin_to_obj(obj)
+    elif method == 'json':
+        return json_to_obj(obj)
+    else:
+        raise Exception('unknown')
+
 
 def obj_to_bin(obj):
     bytes_io = BytesIO()

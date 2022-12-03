@@ -8,7 +8,7 @@ from io import StringIO
 
 import websockets
 
-from marshall_pickel import bin_to_obj, obj_to_bin
+from marshall_pickel import bin_to_obj, obj_to_bin, serialize, unserialize
 from strucenglib_connect.comm_utils import websocket_receive, websocket_send
 
 logger = logging.getLogger('strucenglib_server')
@@ -111,7 +111,7 @@ class WsServer:
 
             # XXX: This is just a POC
             # Can lead to arbitrary code execution!
-            structure = bin_to_obj(structure_data)
+            structure = unserialize(structure_data, method='pickle')
 
             if structure is None:
                 await _send_error(ws, 'structure is invalid. got None')
@@ -119,7 +119,7 @@ class WsServer:
 
             # XXX: We only allow execution within C:\Temp
             # when executed on windows
-            # if we use pickel above this is useless as
+            # if we use pickle above this is useless as
             # obj may contain code to change this later on
             if structure.path != '/tmp/':
                 structure.path = 'C:\\Temp\\'
@@ -128,7 +128,7 @@ class WsServer:
             with prefix_stdout(on_stdout_message):
                 structure.analyse_and_extract(**execute_args)
 
-            structure_data = obj_to_bin(structure)
+            structure_data = serialize(structure, method='pickle')
             exec_res = {
                 'stdout': stdout.getvalue(),
                 'structure': structure_data,

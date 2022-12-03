@@ -1,4 +1,4 @@
-from marshall_pickel import bin_to_obj, obj_to_bin
+from marshall_pickel import bin_to_obj, obj_to_bin, serialize, unserialize
 
 WITH_PROXY = True
 
@@ -26,8 +26,8 @@ class StrucEngLibConnectException(Exception):
 def analyse_and_extract(server, structure, **kwargs):
     data = {
         'args': kwargs,
-        'version': 'pickle_4',
-        'structure': obj_to_bin(structure)
+        'structure_type': 'pickle',
+        'structure': serialize(structure, method='pickle')
     }
 
     res_data = _do_call(server, data)

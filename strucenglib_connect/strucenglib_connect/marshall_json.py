@@ -3,6 +3,12 @@ import sys
 
 from pydoc import locate
 
+#
+# This provides an alternative serialize method to pickle.
+# Data can dynamically be serialized but solely data no code is sent.
+# The receiver has to have the same python packages available in environment
+# An optional white listing allows to white list packages to reconstruct
+#
 
 class ExtendedEncoder(json.JSONEncoder):
     def default(self, obj):

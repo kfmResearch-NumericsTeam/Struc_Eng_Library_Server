@@ -24,7 +24,7 @@ def analyse_and_extract(server, structure, **kwargs):
 
     print('success', success)
     if success and payload is not None:
-        res = obj_to_json(response['payload'])
+        res = json_to_obj(response['payload'])
         print('obj_to_json successful')
         return res
     else:

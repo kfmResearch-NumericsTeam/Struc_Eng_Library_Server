@@ -42,7 +42,7 @@ CLASS_WHITE_LIST = None
 
 
 def locate_class(full_name):
-    print(full_name, full_name not in CLASS_WHITE_LIST)
+    # print(full_name, full_name not in CLASS_WHITE_LIST)
     if CLASS_WHITE_LIST is not None:
         if full_name not in CLASS_WHITE_LIST:
             print("Unknown class ignored: " + full_name)

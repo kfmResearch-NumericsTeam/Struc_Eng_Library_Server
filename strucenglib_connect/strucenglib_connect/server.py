@@ -41,7 +41,7 @@ def prefix_stdout(callback):
 
 
 def run_server(host, port):
-    set_whitelist(FEA_WHITE_LIST)
+    # set_whitelist(FEA_WHITE_LIST)
 
     start_server = websockets.serve(handle_client, host, port, ping_interval=None)
     asyncio.get_event_loop().run_until_complete(start_server)
@@ -94,6 +94,7 @@ async def handle_client_message(websocket, type, payload):
 
 async def _execute_analyse_and_extract(structure, **execute_args):
     # TODO: Temp dir validation
+    print(**execute_args)
     structure.analyse_and_extract(**execute_args)
     return structure
 

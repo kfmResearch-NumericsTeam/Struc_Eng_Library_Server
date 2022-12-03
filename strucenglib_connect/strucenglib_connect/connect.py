@@ -1,31 +1,50 @@
-from compas.rpc import Proxy
+from marshall_pickel import bin_to_obj, obj_to_bin
 
-from strucenglib_connect.marshall import json_to_obj, obj_to_json
+WITH_PROXY = True
+
+
+def _do_call(server, data):
+    if WITH_PROXY:
+        from compas.rpc import Proxy
+        try:
+            proxy = Proxy('strucenglib_connect.rpc_wrapper')
+        except Exception as e:
+            print(e)
+            raise e
+        return proxy.rpc_analyse_and_extract(server, data)
+    else:
+        from rpc_wrapper import rpc_analyse_and_extract
+        return rpc_analyse_and_extract(server, data)
+
+
+class StrucEngLibConnectException(Exception):
+    pass
 
 
 def analyse_and_extract(server, structure, **kwargs):
     data = {
         'args': kwargs,
-        'structure': obj_to_json(structure)
+        'version': 'pickle_4',
+        'structure': obj_to_bin(structure)
     }
-    try:
-        client = Proxy('strucenglib_connect.wrapper')
-    except Exception as e:
-        print(e)
-        raise (e)
-    response = client.do_analyse_and_extract(server, data)
-    if not response:
-        print('response is null, error')
-        return None
 
-    print(response.get('stdout'))
-    success = response.get('success')
-    payload = response.get('payload')
+    res_data = _do_call(server, data)
+    if res_data is None:
+        raise StrucEngLibConnectException('response is null, error')
 
-    print('success', success)
-    if success and payload is not None:
-        res = json_to_obj(response['payload'])
-        print('obj_to_json successful')
-        return res
-    else:
+    stdout = res_data.get('stdout')
+    print('\n\n======= Message from Server ' + server + ' BEGIN')
+    print(stdout)
+    print('======= Message from Server ' + server + ' END\n\n')
+
+    if 'status' not in res_data:
+        raise StrucEngLibConnectException('response has no status, error ' + stdout)
+
+    status = res_data.get('status')
+    structure_data = res_data.get('payload')
+
+    if status == 'success':
+        structure = bin_to_obj(structure_data)
         return structure
+    else:
+        raise StrucEngLibConnectException("Error from server " + stdout)

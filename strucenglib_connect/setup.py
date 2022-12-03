@@ -15,6 +15,6 @@ setuptools.setup(
     packages=['strucenglib_connect'],
 
     entry_points={
-        'console_scripts': ['strucenglib_server=strucenglib_connect.server:main'],
+        'console_scripts': ['strucenglib_server=strucenglib_connect.wsserver:main'],
     }
 )

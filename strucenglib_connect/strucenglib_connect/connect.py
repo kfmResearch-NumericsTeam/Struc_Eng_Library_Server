@@ -44,7 +44,11 @@ def analyse_and_extract(server, structure, **kwargs):
     structure_data = res_data.get('payload')
 
     if status == 'success':
-        structure = bin_to_obj(structure_data)
+        try:
+            structure = bin_to_obj(structure_data, 'iron')
+        except:
+            #: XXX: try/catch for running outside of iron python
+            structure = bin_to_obj(structure_data)
         return structure
     else:
         raise StrucEngLibConnectException("Error from server " + stdout)

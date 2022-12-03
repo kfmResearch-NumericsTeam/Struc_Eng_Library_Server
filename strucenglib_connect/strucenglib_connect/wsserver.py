@@ -51,7 +51,7 @@ async def _send_log_output(websocket, msg):
 
 
 async def _send_result(websocket, msg):
-    logger.debug('analyse_and_extract_result %s', msg)
+    logger.debug('analyse_and_extract_result %s', '[payload]')
     await websocket_send(websocket, 'analyse_and_extract_result', msg)
 
 

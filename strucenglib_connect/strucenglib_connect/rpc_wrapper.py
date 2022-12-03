@@ -1,4 +1,4 @@
-from wsclient import WsClient
+from strucenglib_connect.wsclient import WsClient
 
 
 def rpc_analyse_and_extract(server, data):

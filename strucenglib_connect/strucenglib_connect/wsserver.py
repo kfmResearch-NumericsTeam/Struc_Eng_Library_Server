@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import sys
+import time
 import traceback
 from contextlib import contextmanager
 from io import StringIO
@@ -116,6 +117,14 @@ class WsServer:
                 await _send_error(ws, 'structure is invalid. got None')
                 return
 
+            # XXX: We only allow execution within C:\Temp
+            # when executed on windows
+            # if we use pickel above this is useless as
+            # obj may contain code to change this later on
+            if structure.path != '/tmp/':
+                structure.path = 'C:\\Temp\\'
+                structure.name = 'exec_model'
+
             with prefix_stdout(on_stdout_message):
                 structure.analyse_and_extract(**execute_args)
 
@@ -123,7 +132,7 @@ class WsServer:
             exec_res = {
                 'stdout': stdout.getvalue(),
                 'structure': structure_data,
-                'structure_type': 'pickle_4'
+                'structure_type': 'pickle'
             }
             await _send_result(ws, exec_res)
 

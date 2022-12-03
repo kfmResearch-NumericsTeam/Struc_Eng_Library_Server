@@ -11,6 +11,8 @@ def _do_call(server, data):
         except Exception as e:
             print(e)
             raise e
+        print('Passing message to remote server ', server)
+        print('This will take some time. Check server logs')
         return proxy.rpc_analyse_and_extract(server, data)
     else:
         from rpc_wrapper import rpc_analyse_and_extract

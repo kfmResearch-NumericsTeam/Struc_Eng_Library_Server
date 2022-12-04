@@ -121,9 +121,9 @@ class WsServer:
             # when executed on windows
             # if we use pickle above this is useless as
             # obj may contain code to change this later on
-            if structure.path != '/tmp/':
-                structure.path = 'C:\\Temp\\'
-                structure.name = 'exec_model'
+            # if structure.path != '/tmp/':
+                # structure.path = 'C:\Temp'
+                # structure.name = 'exec_model'
 
             with prefix_stdout(on_stdout_message):
                 structure.analyse_and_extract(**execute_args)

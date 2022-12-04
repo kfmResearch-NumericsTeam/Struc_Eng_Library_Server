@@ -13,6 +13,7 @@ from strucenglib_connect.serialize_pickle import serialize, \
     unserialize
 
 logger = logging.getLogger('strucenglib_server')
+WORKING_DIR = 'C:\\Temp'
 
 
 class WriteProxy(object):
@@ -99,51 +100,49 @@ class WsServer:
             return
 
         if method == 'analyse_and_extract':
-            execute_args = payload.get('args')
-            structure_data = payload.get('structure')
-            logger.info('handle request type: %s', str(execute_args))
+            await self._do_analyze_and_extract(ws, path, method, payload)
 
-            stdout = StringIO()
+    async def _do_analyze_and_extract(self, ws, path, method, payload):
+        execute_args = payload.get('args')
+        structure_data = payload.get('structure')
+        logger.info('handle request type: %s', str(execute_args))
 
-            def on_stdout_message(text):
-                # XXX: This may be very slow
-                # asyncio.create_task(_send_log_output(ws, text))
-                stdout.write(text)
+        stdout = StringIO()
 
-            # XXX: This is just a POC
-            # Can lead to arbitrary code execution!
-            structure = unserialize(structure_data, method=SERIALIZE_CLIENT_TO_SERVER)
+        def on_stdout_message(text):
+            # XXX: This may be very slow
+            # asyncio.create_task(_send_log_output(ws, text))
+            stdout.write(text)
 
-            if structure is None:
-                await _send_error(ws, 'structure is invalid. got None')
-                return
+        structure = unserialize(structure_data, method=SERIALIZE_CLIENT_TO_SERVER)
+        if structure is None:
+            await _send_error(ws, 'structure is invalid. got None')
+            return
 
-            # XXX: We only allow execution within C:\Temp
-            # when executed on windows
-            # if we use pickle above this is useless as
-            # obj may contain code to change this later on
-            # if structure.path != '/tmp/':
-            # structure.path = 'C:\Temp'
-            # structure.name = 'exec_model'
-            success = False
-            error_msg = ''
-            with prefix_stdout(on_stdout_message):
-                try:
-                    structure.analyse_and_extract(**execute_args)
-                    success = True
-                except Exception as e:
-                    error_msg = traceback.format_exc()
+        # XXX: Basic sanitzation
+        structure.path = WORKING_DIR
+        structure.name = structure.name.replace('\\', '_')
+        structure.name = structure.name.replace('/', '_')
 
-            if success:
-                structure_data = serialize(structure, method=SERIALIZE_SERVER_TO_CLIENT)
-                exec_res = {
-                    'stdout': stdout.getvalue(),
-                    'structure': structure_data,
-                    'structure_type': SERIALIZE_SERVER_TO_CLIENT,
-                }
-                await _send_result(ws, exec_res)
-            else:
-                await _send_error(ws, error_msg)
+        success = False
+        error_msg = ''
+        with prefix_stdout(on_stdout_message):
+            try:
+                structure.analyse_and_extract(**execute_args)
+                success = True
+            except Exception:
+                error_msg = traceback.format_exc()
+
+        if success:
+            structure_data = serialize(structure, method=SERIALIZE_SERVER_TO_CLIENT)
+            exec_res = {
+                'stdout': stdout.getvalue(),
+                'structure': structure_data,
+                'structure_type': SERIALIZE_SERVER_TO_CLIENT,
+            }
+            await _send_result(ws, exec_res)
+        else:
+            await _send_error(ws, error_msg)
 
 
 def main():

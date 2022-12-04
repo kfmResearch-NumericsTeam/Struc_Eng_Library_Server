@@ -59,6 +59,8 @@ class WsClient:
     async def async_processing(self, payload, stdout_buffer, result):
         def _do_print(msg):
             print('do_print: ', msg)
+            msg = msg.replace('\\r\\n', '\n')
+            msg = msg.replace('\\n', '\n')
             stdout_buffer.write(msg)
 
         try:

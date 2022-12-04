@@ -1,6 +1,5 @@
 from serialize_pickle import serialize, unserialize
-
-WITH_PROXY = True
+from strucenglib_connect.config import SERIALIZE_CLIENT_TO_SERVER, SERIALIZE_SERVER_TO_CLIENT, WITH_PROXY
 
 
 def _do_call(server, data):
@@ -26,8 +25,8 @@ class StrucEngLibConnectException(Exception):
 def analyse_and_extract(server, structure, **kwargs):
     data = {
         'args': kwargs,
-        'structure_type': 'pickle',
-        'structure': serialize(structure, method='pickle')
+        'structure_type': SERIALIZE_CLIENT_TO_SERVER,
+        'structure': serialize(structure, method=SERIALIZE_CLIENT_TO_SERVER)
     }
 
     res_data = _do_call(server, data)
@@ -46,11 +45,12 @@ def analyse_and_extract(server, structure, **kwargs):
     structure_data = res_data.get('payload')
 
     if status == 'success':
+        method = SERIALIZE_SERVER_TO_CLIENT
         try:
-            structure = unserialize(structure_data, method='pickle', python_impl='iron')
+            structure = unserialize(structure_data, method=method, python_impl='iron')
         except:
             #: XXX: try/catch for running outside of iron python
-            structure = unserialize(structure_data, method='pickle', python_impl='cpython')
+            structure = unserialize(structure_data, method=method, python_impl='cpython')
         return structure
     else:
         raise StrucEngLibConnectException("analyse_and_extract failed: " + stdout)

@@ -69,7 +69,6 @@ class ExtendedDecoder(json.JSONDecoder):
                 temp.__class__ = locate_class(full_name)
             except:
                 return {}
-                pass
             return assign_dict_to_obj(temp, obj)
 
         except Exception as e:

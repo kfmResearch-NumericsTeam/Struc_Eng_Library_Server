@@ -10,7 +10,6 @@ from strucenglib_connect.comm_utils import websocket_receive, websocket_send
 
 logger = logging.getLogger(__name__)
 
-
 class WsResult:
     def __init__(self):
         self.status = 'error'

@@ -1,15 +1,16 @@
 import asyncio
 import logging
 import sys
-import time
 import traceback
 from contextlib import contextmanager
 from io import StringIO
 
 import websockets
 
-from strucenglib_connect.serialize_pickle import serialize, unserialize
 from strucenglib_connect.comm_utils import websocket_receive, websocket_send
+from strucenglib_connect.config import SERIALIZE_CLIENT_TO_SERVER, SERIALIZE_SERVER_TO_CLIENT
+from strucenglib_connect.serialize_pickle import serialize, \
+    unserialize
 
 logger = logging.getLogger('strucenglib_server')
 
@@ -111,7 +112,7 @@ class WsServer:
 
             # XXX: This is just a POC
             # Can lead to arbitrary code execution!
-            structure = unserialize(structure_data, method='pickle')
+            structure = unserialize(structure_data, method=SERIALIZE_CLIENT_TO_SERVER)
 
             if structure is None:
                 await _send_error(ws, 'structure is invalid. got None')
@@ -122,9 +123,8 @@ class WsServer:
             # if we use pickle above this is useless as
             # obj may contain code to change this later on
             # if structure.path != '/tmp/':
-                # structure.path = 'C:\Temp'
-                # structure.name = 'exec_model'
-
+            # structure.path = 'C:\Temp'
+            # structure.name = 'exec_model'
             success = False
             error_msg = ''
             with prefix_stdout(on_stdout_message):
@@ -135,11 +135,11 @@ class WsServer:
                     error_msg = traceback.format_exc()
 
             if success:
-                structure_data = serialize(structure, method='pickle')
+                structure_data = serialize(structure, method=SERIALIZE_SERVER_TO_CLIENT)
                 exec_res = {
                     'stdout': stdout.getvalue(),
                     'structure': structure_data,
-                    'structure_type': 'pickle'
+                    'structure_type': SERIALIZE_SERVER_TO_CLIENT,
                 }
                 await _send_result(ws, exec_res)
             else:

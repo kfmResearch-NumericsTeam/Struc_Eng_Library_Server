@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import sys
 import traceback
 from contextlib import contextmanager
@@ -13,7 +14,7 @@ from strucenglib_connect.serialize_pickle import serialize, \
     unserialize
 
 logger = logging.getLogger('strucenglib_server')
-WORKING_DIR = 'C:\\Temp'
+WORKING_DIR = 'C:\\Temp\\'
 
 
 class WriteProxy(object):
@@ -120,9 +121,9 @@ class WsServer:
             return
 
         # XXX: Basic sanitzation
+        filename = structure.name.replace('\\', '_').replace('/', '_').replace('..', '_')
+        structure.name = os.path.basename(filename)
         structure.path = WORKING_DIR
-        structure.name = structure.name.replace('\\', '_')
-        structure.name = structure.name.replace('/', '_')
 
         success = False
         error_msg = ''

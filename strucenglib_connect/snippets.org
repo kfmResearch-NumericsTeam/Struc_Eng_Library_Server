@@ -1,5 +1,7 @@
-import sys
-sys.path.append('Y:\projects\code_generator\StrucEng_Library_Server\strucenglib_connect')
-from strucenglib_connect.strucenglib_connect import analyse_and_extract
-mdl = analyse_and_extract(mdl, software='abaqus', fields=['u','sf','sm'])
+* Snippets
 
+* Todo
+- ping endpoint to check if available
+- tls client authentication
+- input sanitation: overwrite working dir
+- do not send pickle in request but json

@@ -53,4 +53,4 @@ def analyse_and_extract(server, structure, **kwargs):
             structure = unserialize(structure_data, method='pickle', python_impl='cpython')
         return structure
     else:
-        raise StrucEngLibConnectException("Error from server " + stdout)
+        raise StrucEngLibConnectException("analyse_and_extract failed: " + stdout)

@@ -1,12 +1,15 @@
 import asyncio
 import io
 import logging
+import traceback
 
+import requests
 import websockets
 
 from strucenglib_connect.comm_utils import websocket_receive, websocket_send
 
 logger = logging.getLogger(__name__)
+
 
 class WsResult:
     def __init__(self):
@@ -26,11 +29,25 @@ class WsClient:
             print('server is alive')
             await asyncio.sleep(20)
 
+    def host_online(self):
+        url = self.host
+        url_parts = url.split('://')
+        if len(url_parts) > 1:
+            url = 'http://' + url_parts[1]
+        try:
+            requests.head(url, timeout=8)
+            return True
+        except:
+            return False
+
     def analyse_and_extract(self, payload):
         stdout_buffer = io.StringIO()
-
         result = WsResult()
-        result.status = 'error'
+
+        if not self.host_online():
+            result.stdout = 'Host ' + self.host + ' cannot be reached. Check connectivity.'
+            result.status = 'error'
+            return result
 
         asyncio.get_event_loop().run_until_complete(asyncio.wait([
             self.check_alive(),
@@ -68,6 +85,7 @@ class WsClient:
 
 
         except Exception as e:
-            _do_print(e)
+            error_msg = traceback.format_exc()
+            _do_print(error_msg)
 
         self.is_alive = False

@@ -2,7 +2,8 @@ import setuptools
 
 dependencies = [
     'compas_fea',
-    'websockets'
+    'websockets',
+    'requests'
 ]
 
 setuptools.setup(

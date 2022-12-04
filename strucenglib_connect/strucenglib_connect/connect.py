@@ -1,4 +1,4 @@
-from marshall_pickel import bin_to_obj, obj_to_bin, serialize, unserialize
+from serialize_pickle import serialize, unserialize
 
 WITH_PROXY = True
 
@@ -47,10 +47,10 @@ def analyse_and_extract(server, structure, **kwargs):
 
     if status == 'success':
         try:
-            structure = bin_to_obj(structure_data, 'iron')
+            structure = unserialize(structure_data, method='pickle', python_impl='iron')
         except:
             #: XXX: try/catch for running outside of iron python
-            structure = bin_to_obj(structure_data)
+            structure = unserialize(structure_data, method='pickle', python_impl='cpython')
         return structure
     else:
         raise StrucEngLibConnectException("Error from server " + stdout)

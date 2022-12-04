@@ -2,7 +2,7 @@ import base64
 import pickle
 from io import BytesIO, StringIO
 
-from marshall_json import json_to_obj, obj_to_json
+from strucenglib_connect.serialize_json import json_to_obj, obj_to_json
 
 
 def serialize(obj, method='pickle'):
@@ -14,9 +14,9 @@ def serialize(obj, method='pickle'):
         raise Exception('unknown')
 
 
-def unserialize(obj, method='pickle'):
+def unserialize(obj, method='pickle', python_impl='cpython'):
     if method == 'pickle':
-        return bin_to_obj(obj)
+        return bin_to_obj(obj, python_impl=python_impl)
     elif method == 'json':
         return json_to_obj(obj)
     else:

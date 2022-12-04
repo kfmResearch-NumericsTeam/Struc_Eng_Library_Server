@@ -8,7 +8,7 @@ from io import StringIO
 
 import websockets
 
-from marshall_pickel import bin_to_obj, obj_to_bin, serialize, unserialize
+from strucenglib_connect.serialize_pickle import serialize, unserialize
 from strucenglib_connect.comm_utils import websocket_receive, websocket_send
 
 logger = logging.getLogger('strucenglib_server')

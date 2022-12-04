@@ -141,7 +141,7 @@ def main():
     logging.basicConfig(level=logging.INFO,
                         format='%(name)s (%(levelname)s): %(message)s')
     logging.getLogger('strucenglib_server').setLevel(logging.DEBUG)
-    s = WsServer('localhost', 8080)
+    s = WsServer('0.0.0.0', 8080)
     s.serve()
 
 

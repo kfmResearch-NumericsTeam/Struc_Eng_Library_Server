@@ -5,5 +5,5 @@ from connect import analyse_and_extract
 if __name__ == '__main__':
     s = Structure('/tmp/', 'test')
 
-    res = analyse_and_extract('ws://localhost:8080', s, software='abaqus')
+    res = analyse_and_extract('ws://ibkpika.ethz.ch:8080', s)
     print(res)

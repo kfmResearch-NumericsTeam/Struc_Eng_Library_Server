@@ -125,16 +125,25 @@ class WsServer:
                 # structure.path = 'C:\Temp'
                 # structure.name = 'exec_model'
 
+            success = False
+            error_msg = ''
             with prefix_stdout(on_stdout_message):
-                structure.analyse_and_extract(**execute_args)
+                try:
+                    structure.analyse_and_extract(**execute_args)
+                    success = True
+                except Exception as e:
+                    error_msg = traceback.format_exc()
 
-            structure_data = serialize(structure, method='pickle')
-            exec_res = {
-                'stdout': stdout.getvalue(),
-                'structure': structure_data,
-                'structure_type': 'pickle'
-            }
-            await _send_result(ws, exec_res)
+            if success:
+                structure_data = serialize(structure, method='pickle')
+                exec_res = {
+                    'stdout': stdout.getvalue(),
+                    'structure': structure_data,
+                    'structure_type': 'pickle'
+                }
+                await _send_result(ws, exec_res)
+            else:
+                await _send_error(ws, error_msg)
 
 
 def main():

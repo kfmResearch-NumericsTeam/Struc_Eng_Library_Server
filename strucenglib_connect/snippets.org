@@ -1,9 +1,0 @@
-* Snippets
-
-* Todo
-- ok - ping endpoint to check if available
-- tls client authentication
-- input sanitation: overwrite working dir
-- ui for client authetnication
-- ui for server url
-- ok - do not send pickle in request but json

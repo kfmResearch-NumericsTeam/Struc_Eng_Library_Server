@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>StrucEng Library Server Log file</title>
+    <style type="text/css">
+        .err {
+            color: #EE1100;
+            font-weight: bold
+        }
+
+        .warn {
+            color: #FFCC00;
+            font-weight: bold
+        }
+
+        .info {
+            color: #C0C0C0;
+        }
+
+        .debug {
+            color: #CCA0A0;
+        }
+
+        .log-entry {
+            margin: 0;
+        }
+    </style>
+    <script>
+        const url = 'ws://' + window.location.host + '/api/log'
+        let ws = new WebSocket(url)
+
+        function appendEntries(entries) {
+            let log = document.getElementById('log')
+            entries.forEach(e => log.appendChild(e))
+        }
+
+        function createEntry(e) {
+            let pre = document.createElement('pre')
+            pre.className = 'log-entry'
+            pre.innerText = e
+            return pre
+        }
+
+        function scrollToBottom() {
+            if (window.innerHeight + window.scrollY >= document.body.offsetHeight) {
+                document.getElementById('bottom').scrollIntoView();
+            }
+        }
+
+        ws.onmessage = function (event) {
+            let msg
+            try {
+                msg = JSON.parse(event.data)
+            } catch (e) {
+                console.error(e)
+                return
+            }
+            let type = msg['message_type']
+            let message = msg.message
+            try {
+                message = JSON.parse(msg.message)
+            } catch (e) {
+                console.log(e)
+            }
+            console.log(type)
+            if (type === 'log-entry') {
+                let entries = message.split('\\n').map(e => createEntry(e))
+                appendEntries(entries)
+            } else if (type === 'log-entries') {
+                let entries = message.join('')
+                entries = entries.split('\\n').map(e => createEntry(e))
+                appendEntries(entries)
+            }
+            scrollToBottom()
+        };
+    </script>
+</head>
+<body>
+<h1>StrucEng Library Server Log</h1>
+<div id="top"></div>
+<div id="log">
+</div>
+<div id="bottom"></div>
+</body>
+</html>

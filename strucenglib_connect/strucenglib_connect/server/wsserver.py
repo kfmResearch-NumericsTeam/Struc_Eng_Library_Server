@@ -1,4 +1,5 @@
 import asyncio
+import functools
 import logging
 import os
 import sys
@@ -8,13 +9,20 @@ from io import StringIO
 
 import websockets
 
+from strucenglib_connect.server.browser_log import BrowserLogHandler
 from strucenglib_connect.comm_utils import websocket_receive, websocket_send
 from strucenglib_connect.config import SERIALIZE_CLIENT_TO_SERVER, SERIALIZE_SERVER_TO_CLIENT
 from strucenglib_connect.serialize_pickle import serialize, \
     unserialize
+from strucenglib_connect.server.static_server import serve_file_request
 
+LOG_FILE = "my_app.log"
 logger = logging.getLogger('strucenglib_server')
+browserLog = BrowserLogHandler(LOG_FILE)
+
 WORKING_DIR = 'C:\\Temp\\'
+
+API_PREFIX = '/api'
 
 
 class WriteProxy(object):
@@ -63,18 +71,49 @@ class WsServer:
     def __init__(self, host, port):
         self.host = host
         self.port = port
+        self.openComputeClients = set()
         pass
 
     def serve(self):
-        start_server = websockets.serve(self.handle_client, self.host, self.port, ping_interval=None)
+        script_dir = os.path.dirname(os.path.realpath(__file__))
+        handler = functools.partial(serve_file_request, script_dir)
+        start_server = websockets.serve(self.handle_client, self.host, self.port,
+                                        ping_interval=None,
+                                        process_request=handler)
+
         asyncio.get_event_loop().run_until_complete(start_server)
         asyncio.get_event_loop().run_forever()
 
-    async def handle_client(self, ws, path):
-        logger.info('handle_client %s', path)
+    def _is_compute(self, path):
+        return path == f'{API_PREFIX}/compute'
 
+    def _is_log(self, path):
+        return path == f'{API_PREFIX}/log'
+
+    def _open_connection(self, ws, path):
+        if self._is_compute(path):
+            self.openComputeClients.add(ws)
+        if self._is_log(path):
+            browserLog.add_client(ws)
+
+    def _close_connection(self, ws, path):
+        if self._is_compute(path):
+            self.openComputeClients.remove(ws)
+        if self._is_log(path):
+            browserLog.remove_client(ws)
+
+    async def handle_client(self, ws, path):
+        self._open_connection(ws, path)
         try:
-            await self._do_handle(ws, path)
+            if self._is_log(path):
+                await self._log(ws, path)
+            elif self._is_compute(path):
+                await self._compute(ws, path)
+            else:
+                logger.warning('unknown path: %s', path)
+
+        except ConnectionError as e:
+            pass
         except Exception as e:
             logger.error('Error in request', e)
             msg = traceback.format_exc()
@@ -83,15 +122,23 @@ class WsServer:
             except:
                 # XXX: if this fails we ignore signaling
                 pass
+        finally:
+            self._close_connection(ws, path)
 
-    async def _do_handle(self, ws, path):
+    async def _log(self, ws, path):
+        async for msg in ws:
+            # For now we dont do anything, we just forward log messages
+            # once they are emitted
+            pass
+
+    async def _compute(self, ws, path):
         method, payload = await websocket_receive(ws)
         if method is None:
             await _send_error(ws, 'no method given')
             return
-        await self._method_dispatch(ws, path, method, payload)
+        await self._compute_method_dispatch(ws, path, method, payload)
 
-    async def _method_dispatch(self, ws, path, method, payload):
+    async def _compute_method_dispatch(self, ws, path, method, payload):
         logger.info('handle request type: %s', method)
 
         supported_types = ['analyse_and_extract']
@@ -101,9 +148,9 @@ class WsServer:
             return
 
         if method == 'analyse_and_extract':
-            await self._do_analyze_and_extract(ws, path, method, payload)
+            await self._compute_analyze_and_extract(ws, path, method, payload)
 
-    async def _do_analyze_and_extract(self, ws, path, method, payload):
+    async def _compute_analyze_and_extract(self, ws, path, method, payload):
         execute_args = payload.get('args')
         structure_data = payload.get('structure')
         logger.info('handle request type: %s', str(execute_args))
@@ -111,9 +158,13 @@ class WsServer:
         stdout = StringIO()
 
         def on_stdout_message(text):
-            # XXX: This may be very slow
-            # asyncio.create_task(_send_log_output(ws, text))
-            stdout.write(text)
+            text = text.replace("b''", '')
+            text = text.strip()
+            if len(text) > 0:
+                # XXX: This may be very slow
+                # asyncio.create_task(_send_log_output(ws, text))
+                logger.info(text)
+                stdout.write(text)
 
         structure = unserialize(structure_data, method=SERIALIZE_CLIENT_TO_SERVER)
         if structure is None:
@@ -146,11 +197,25 @@ class WsServer:
             await _send_error(ws, error_msg)
 
 
+FORMATTER = logging.Formatter("%(asctime)s; %(levelname)s; %(message)s")
+
+
+def configure_logger():
+    logger = logging.getLogger('strucenglib_server')
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(FORMATTER)
+
+    browserLog.setFormatter(FORMATTER)
+    logger.addHandler(browserLog)
+    logger.addHandler(console_handler)
+    logger.propagate = False
+    logger.setLevel(logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
+
 def main():
-    logging.basicConfig(level=logging.INFO,
-                        format='%(name)s (%(levelname)s): %(message)s')
-    logging.getLogger('strucenglib_server').setLevel(logging.DEBUG)
     s = WsServer('0.0.0.0', 8080)
+    configure_logger()
+
     s.serve()
 
 

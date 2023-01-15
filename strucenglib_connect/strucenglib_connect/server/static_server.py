@@ -7,8 +7,6 @@ MIME_TYPES = {
     "css": "text/css"
 }
 
-INITIAL_LOG = '%INITIAL_LOG%'
-
 async def serve_file_request(server_root, path, request_headers):
     server_root = server_root + '/assets'
 

@@ -4,6 +4,7 @@ import os
 
 from strucenglib_connect.comm_utils import websocket_send
 
+
 class BrowserLogHandler(logging.FileHandler):
     def __init__(self, filename, **kwargs):
         self.openClients = set()
@@ -12,7 +13,7 @@ class BrowserLogHandler(logging.FileHandler):
 
     async def _send_initial_log(self, ws):
         with open(self.baseFilename) as f:
-            msgs = self.tail(f, 200)
+            msgs = self.tail(f, 100)
             await websocket_send(ws, 'log-entries', msgs)
 
     def add_client(self, ws):
@@ -46,7 +47,16 @@ class BrowserLogHandler(logging.FileHandler):
 
         return lines_found[-lines:]
 
+    def _is_ws_running(self):
+        try:
+            asyncio.get_running_loop()
+            return True
+        except:
+            return False
+
     def emit(self, record):
         msg = self.format(record)
-        asyncio.create_task(self.broadcast_log(msg))
+        if self._is_ws_running():
+            asyncio.create_task(self.broadcast_log(msg))
+
         super().emit(record)

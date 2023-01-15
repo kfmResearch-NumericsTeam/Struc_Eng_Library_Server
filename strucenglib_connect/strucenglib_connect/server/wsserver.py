@@ -1,7 +1,10 @@
 import asyncio
 import functools
+import getopt
+import http
 import logging
 import os
+import ssl
 import sys
 import traceback
 from contextlib import contextmanager
@@ -9,16 +12,16 @@ from io import StringIO
 
 import websockets
 
-from strucenglib_connect.server.browser_log import BrowserLogHandler
 from strucenglib_connect.comm_utils import websocket_receive, websocket_send
-from strucenglib_connect.config import SERIALIZE_CLIENT_TO_SERVER, SERIALIZE_SERVER_TO_CLIENT
+from strucenglib_connect.config import LOG_FILE_SERVER, SERIALIZE_CLIENT_TO_SERVER, SERIALIZE_SERVER_TO_CLIENT
 from strucenglib_connect.serialize_pickle import serialize, \
     unserialize
+from strucenglib_connect.server.browser_log import BrowserLogHandler
 from strucenglib_connect.server.static_server import serve_file_request
 
-LOG_FILE = "my_app.log"
+script_dir = os.path.dirname(os.path.realpath(__file__))
 logger = logging.getLogger('strucenglib_server')
-browserLog = BrowserLogHandler(LOG_FILE)
+browserLog = BrowserLogHandler(LOG_FILE_SERVER)
 
 WORKING_DIR = 'C:\\Temp\\'
 
@@ -57,6 +60,11 @@ async def _send_error(websocket, msg):
     await websocket_send(websocket, 'error', msg)
 
 
+async def _send_busy(websocket, msg):
+    logger.debug('compute node currently busy', msg)
+    await websocket_send(websocket, 'busy', msg)
+
+
 async def _send_log_output(websocket, msg):
     logger.debug('trace %s', msg)
     await websocket_send(websocket, 'trace', msg)
@@ -67,47 +75,71 @@ async def _send_result(websocket, msg):
     await websocket_send(websocket, 'analyse_and_extract_result', msg)
 
 
+def is_compute_path(path):
+    return path == f'{API_PREFIX}/compute'
+
+
+def is_log_path(path):
+    return path == f'{API_PREFIX}/log'
+
+
+class AuthenticationLayer(websockets.WebSocketServerProtocol):
+    async def process_request(self, path, headers):
+
+        # XXX: We only require authentication for compute
+        if not is_compute_path(path):
+            return
+
+        auth_header = headers.get('Authorization')
+        logger.info(auth_header)
+        if not auth_header:
+            logger.info("Request without authentication. Aborting")
+            return http.HTTPStatus.UNAUTHORIZED, [], b"Missing auth\n"
+
+
 class WsServer:
     def __init__(self, host, port):
         self.host = host
         self.port = port
         self.openComputeClients = set()
+        self.computeBusy = False
+        self.computeLock = asyncio.Lock()
+
         pass
 
-    def serve(self):
+    def serve(self, ssl=None):
         script_dir = os.path.dirname(os.path.realpath(__file__))
         handler = functools.partial(serve_file_request, script_dir)
         start_server = websockets.serve(self.handle_client, self.host, self.port,
+                                        ssl=ssl,
                                         ping_interval=None,
                                         process_request=handler)
 
+        # for now we dont have authentication
+        # create_protocol=AuthenticationLayer,
+
+        logger.info(f'starting server {self.host}:{self.port} with tls={ssl is not None}')
         asyncio.get_event_loop().run_until_complete(start_server)
         asyncio.get_event_loop().run_forever()
 
-    def _is_compute(self, path):
-        return path == f'{API_PREFIX}/compute'
-
-    def _is_log(self, path):
-        return path == f'{API_PREFIX}/log'
-
     def _open_connection(self, ws, path):
-        if self._is_compute(path):
+        if is_compute_path(path):
             self.openComputeClients.add(ws)
-        if self._is_log(path):
+        if is_log_path(path):
             browserLog.add_client(ws)
 
     def _close_connection(self, ws, path):
-        if self._is_compute(path):
+        if is_compute_path(path):
             self.openComputeClients.remove(ws)
-        if self._is_log(path):
+        if is_log_path(path):
             browserLog.remove_client(ws)
 
     async def handle_client(self, ws, path):
         self._open_connection(ws, path)
         try:
-            if self._is_log(path):
+            if is_compute_path(path):
                 await self._log(ws, path)
-            elif self._is_compute(path):
+            elif is_log_path(path):
                 await self._compute(ws, path)
             else:
                 logger.warning('unknown path: %s', path)
@@ -132,11 +164,16 @@ class WsServer:
             pass
 
     async def _compute(self, ws, path):
-        method, payload = await websocket_receive(ws)
-        if method is None:
-            await _send_error(ws, 'no method given')
-            return
-        await self._compute_method_dispatch(ws, path, method, payload)
+        if self.computeLock.locked():
+            logger.info("compute currently busy by other user. waiting...")
+
+        async with self.computeLock:
+            logger.info("request acquired compute lock")
+            method, payload = await websocket_receive(ws)
+            if method is None:
+                await _send_error(ws, 'no method given')
+                return
+            await self._compute_method_dispatch(ws, path, method, payload)
 
     async def _compute_method_dispatch(self, ws, path, method, payload):
         logger.info('handle request type: %s', method)
@@ -158,13 +195,15 @@ class WsServer:
         stdout = StringIO()
 
         def on_stdout_message(text):
+            # Custom text format from abaqus
             text = text.replace("b''", '')
+            text = text.replace("b'", '')
+            text = text.replace("\\n'", '')
             text = text.strip()
             if len(text) > 0:
                 # XXX: This may be very slow
-                # asyncio.create_task(_send_log_output(ws, text))
                 logger.info(text)
-                stdout.write(text)
+                stdout.write(text + '\n')
 
         structure = unserialize(structure_data, method=SERIALIZE_CLIENT_TO_SERVER)
         if structure is None:
@@ -212,11 +251,41 @@ def configure_logger():
     logger.setLevel(logging.DEBUG)
     logging.basicConfig(level=logging.INFO)
 
-def main():
-    s = WsServer('0.0.0.0', 8080)
-    configure_logger()
 
-    s.serve()
+def main():
+    args = sys.argv[1:]
+    options = "k:c:p:"
+    long_options = ["key=", "cert=", "port="]
+    key = None
+    cert = None
+    port = 8080
+    try:
+        arguments, values = getopt.getopt(args, options, long_options)
+        for arg, val in arguments:
+            if arg in ("-k", "--key"):
+                key = val
+            elif arg in ("-c", "--cert"):
+                cert = val
+            elif arg in ("-p", "--port"):
+                port = val
+    except getopt.error as err:
+        print(str(err))
+
+    use_ssl = (key is not None) and (cert is not None)
+    ssl_context = None
+    if use_ssl:
+        print('using ssl', key, cert)
+        ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+
+        # ssl_cert = script_dir + '/server.crt'
+        # ssl_key = script_dir + '/server.key'
+
+        ssl_context.load_cert_chain(cert, keyfile=key)
+
+    s = WsServer('0.0.0.0', port)
+
+    configure_logger()
+    s.serve(ssl=ssl_context)
 
 
 if __name__ == '__main__':

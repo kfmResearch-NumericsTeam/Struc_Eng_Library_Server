@@ -8,3 +8,4 @@ __pycache__
 /strucenglib_connect/my_app.log
 /strucenglib_connect/strucenglib_connect.egg-info/
 /strucenglib_connect/strucenglib_connect/my_app.log
+/strucenglib_connect/strucenglib_connect/server/strucenglib_server.log

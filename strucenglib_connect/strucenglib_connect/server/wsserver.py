@@ -1,4 +1,5 @@
 import asyncio
+import concurrent.futures
 import functools
 import getopt
 import http
@@ -11,6 +12,7 @@ from contextlib import contextmanager
 from io import StringIO
 
 import websockets
+from websockets.exceptions import ConnectionClosedError
 
 from strucenglib_connect.comm_utils import websocket_receive, websocket_send
 from strucenglib_connect.config import LOG_FILE_SERVER, SERIALIZE_CLIENT_TO_SERVER, SERIALIZE_SERVER_TO_CLIENT
@@ -117,7 +119,6 @@ class WsServer:
 
         # for now we dont have authentication
         # create_protocol=AuthenticationLayer,
-
         logger.info(f'starting server {self.host}:{self.port} with tls={ssl is not None}')
         asyncio.get_event_loop().run_until_complete(start_server)
         asyncio.get_event_loop().run_forever()
@@ -125,7 +126,7 @@ class WsServer:
     def _open_connection(self, ws, path):
         if is_compute_path(path):
             self.openComputeClients.add(ws)
-        if is_log_path(path):
+        elif is_log_path(path):
             browserLog.add_client(ws)
 
     def _close_connection(self, ws, path):
@@ -135,29 +136,33 @@ class WsServer:
             browserLog.remove_client(ws)
 
     async def handle_client(self, ws, path):
+        if browserLog.loop is None:
+            browserLog.loop = asyncio.get_running_loop()
         self._open_connection(ws, path)
         try:
-            if is_compute_path(path):
+            if is_log_path(path):
                 await self._log(ws, path)
-            elif is_log_path(path):
+            elif is_compute_path(path):
                 await self._compute(ws, path)
             else:
                 logger.warning('unknown path: %s', path)
 
         except ConnectionError as e:
             pass
+        except ConnectionClosedError as e:
+            pass
         except Exception as e:
-            logger.error('Error in request', e)
-            msg = traceback.format_exc()
             try:
+                msg = traceback.format_exc()
                 await _send_error(ws, msg)
-            except:
+            except Exception as e:
                 # XXX: if this fails we ignore signaling
                 pass
         finally:
             self._close_connection(ws, path)
 
     async def _log(self, ws, path):
+
         async for msg in ws:
             # For now we dont do anything, we just forward log messages
             # once they are emitted
@@ -168,7 +173,7 @@ class WsServer:
             logger.info("compute currently busy by other user. waiting...")
 
         async with self.computeLock:
-            logger.info("request acquired compute lock")
+            # logger.info("request acquired compute lock")
             method, payload = await websocket_receive(ws)
             if method is None:
                 await _send_error(ws, 'no method given')
@@ -199,6 +204,8 @@ class WsServer:
             text = text.replace("b''", '')
             text = text.replace("b'", '')
             text = text.replace("\\n'", '')
+            text = text.replace("\\r", '')
+            text = text.replace("\\n", '\n')
             text = text.strip()
             if len(text) > 0:
                 # XXX: This may be very slow
@@ -215,14 +222,20 @@ class WsServer:
         structure.name = os.path.basename(filename)
         structure.path = WORKING_DIR
 
+        def run_in_thread():
+            with prefix_stdout(on_stdout_message):
+                structure.analyse_and_extract(**execute_args)
+
+
         success = False
         error_msg = ''
-        with prefix_stdout(on_stdout_message):
-            try:
-                structure.analyse_and_extract(**execute_args)
-                success = True
-            except Exception:
-                error_msg = traceback.format_exc()
+        try:
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                await asyncio.get_event_loop().run_in_executor(
+                    pool, functools.partial(run_in_thread))
+            success = True
+        except Exception:
+            error_msg = traceback.format_exc()
 
         if success:
             structure_data = serialize(structure, method=SERIALIZE_SERVER_TO_CLIENT)

@@ -22,9 +22,11 @@
         .debug {
             color: #CCA0A0;
         }
+
         .log-success {
-            /*background-color: rgba(29, 255, 0, 0.13);*/
+            background-color: rgba(29, 255, 0, 0.13);
         }
+
         .log-error {
             background-color: rgba(255, 0, 11, 0.15)
         }
@@ -37,17 +39,30 @@
         }
     </style>
     <script>
+
+         document.addEventListener("DOMContentLoaded", function(event) {
+        });
+
+        window.onbeforeunload = function(e) {
+            localStorage.setItem('scrollpos', window.scrollY);
+        };
+
         function checkConnectivity(url) {
             return new Promise((resolve, reject) => {
-                let ws = new WebSocket(url)
-                ws.onopen = function () {
-                    resolve(true);
-                    ws.close()
-                }
-                ws.onerror = function () {
+                try {
+                    let ws = new WebSocket(url)
+                    ws.onopen = function () {
+                        resolve(true);
+                        ws.close()
+                    }
+                    ws.onerror = function () {
+                        resolve(false)
+                        ws.close()
+                    }
+                } catch (e) {
                     resolve(false)
-                    ws.close()
                 }
+
             });
         }
 
@@ -92,7 +107,7 @@
             }
 
             function scrollToBottom() {
-                const offset = 50
+                const offset = 100
                 if (window.innerHeight + window.scrollY + offset >= document.body.offsetHeight) {
                     document.getElementById('bottom').scrollIntoView();
                 }
@@ -126,6 +141,9 @@
                 } else if (type === 'log-entries') {
                     let entries = message.flatMap(entry => entry.split('\\n')).map(e => createEntry(e))
                     appendEntries(entries)
+                        var scrollpos = localStorage.getItem('scrollpos');
+                        if (scrollpos) window.scrollTo(0, scrollpos);
+                        localStorage.setItem('scrollpos', null)
                 }
                 scrollToBottom()
             };
@@ -134,8 +152,15 @@
         const suffix = window.location.host + '/api/log'
         const wsUrl = 'ws://' + suffix
         const wssUrl = 'wss://' + suffix
-        connectOnSuccess(wsUrl)
-        connectOnSuccess(wssUrl)
+        checkConnectivity(wssUrl)
+            .then((success) => {
+                console.log(wssUrl, success)
+                if (success) {
+                    connect(wssUrl)
+                } else {
+                    connect(wsUrl)
+                }
+            });
     </script>
 </head>
 <body>

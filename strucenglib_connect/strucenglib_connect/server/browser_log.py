@@ -7,6 +7,7 @@ from strucenglib_connect.comm_utils import websocket_send
 
 class BrowserLogHandler(logging.FileHandler):
     def __init__(self, filename, **kwargs):
+        self.loop = None
         self.openClients = set()
         logging.FileHandler.__init__(self, filename, **kwargs)
         pass
@@ -55,8 +56,14 @@ class BrowserLogHandler(logging.FileHandler):
             return False
 
     def emit(self, record):
-        msg = self.format(record)
-        if self._is_ws_running():
-            asyncio.create_task(self.broadcast_log(msg))
+        try:
+            msg = self.format(record)
+            if self._is_ws_running():
+                asyncio.create_task(self.broadcast_log(msg))
+            elif self.loop is not None:
+                self.loop.create_task(self.broadcast_log(msg))
+
+        except Exception as e:
+            pass
 
         super().emit(record)

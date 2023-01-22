@@ -1,14 +1,17 @@
 import asyncio
 import io
 import logging
+import ssl
 import traceback
 
 import requests
 import websockets
+from requests.exceptions import SSLError
 
 from strucenglib_connect.comm_utils import websocket_receive, websocket_send
 
 logger = logging.getLogger(__name__)
+
 
 class WsResult:
     def __init__(self):
@@ -29,15 +32,19 @@ class WsClient:
             await asyncio.sleep(20)
 
     def host_online(self):
-        url = self.host
-        url_parts = url.split('://')
-        if len(url_parts) > 1:
-            url = 'http://' + url_parts[1]
-        try:
-            requests.head(url, timeout=8)
-            return True
-        except:
-            return False
+        def check_url(url, prefix):
+            url_parts = url.split('://')
+            if len(url_parts) > 1:
+                url = prefix + url_parts[1]
+            try:
+                requests.head(url, timeout=8)
+                return True
+            except SSLError as e:
+                return True
+            except:
+                return False
+
+        return check_url(self.host, 'http://') or check_url(self.host, 'https://')
 
     def analyse_and_extract(self, payload):
         stdout_buffer = io.StringIO()
@@ -56,6 +63,9 @@ class WsClient:
         stdout_buffer.close()
         return result
 
+    def _is_secure_url(self, url):
+        return url.startswith('wss')
+
     async def async_processing(self, payload, stdout_buffer, result):
         def _do_print(msg):
             print('do_print: ', msg)
@@ -64,7 +74,15 @@ class WsClient:
             stdout_buffer.write(msg)
 
         try:
-            async with websockets.connect(self.host, ping_interval=None) as ws:
+            ctx = None
+            if self._is_secure_url(self.host):
+                # XXX: We use self signed certs so ignore cert errors
+                ctx = ssl.create_default_context()
+                ctx.check_hostname = False
+                ctx.verify_mode = ssl.CERT_NONE
+            async with websockets.connect(self.host,
+                                          ping_interval=None,
+                                          ssl=ctx) as ws:
                 await websocket_send(ws, 'analyse_and_extract', payload)
                 while True:
                     method, payload = await websocket_receive(ws)

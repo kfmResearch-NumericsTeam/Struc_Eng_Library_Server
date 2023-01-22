@@ -1,4 +1,4 @@
-from serialize_pickle import serialize, unserialize
+from strucenglib_connect.serialize_pickle import serialize, unserialize
 from strucenglib_connect.config import SERIALIZE_CLIENT_TO_SERVER, SERIALIZE_SERVER_TO_CLIENT, WITH_PROXY
 
 

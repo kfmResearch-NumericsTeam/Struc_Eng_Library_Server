@@ -5,3 +5,4 @@ WITH_PROXY = True
 set_whitelist(FEA_WHITE_LIST)
 SERIALIZE_CLIENT_TO_SERVER = 'json'
 SERIALIZE_SERVER_TO_CLIENT = 'pickle'
+LOG_FILE_SERVER = 'strucenglib_server.log'
